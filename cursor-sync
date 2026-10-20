@@ -1,0 +1,72 @@
+cursor-sync() {
+  local main_app="/Applications/Cursor.app"
+  local personal_app="/Applications/Cursor-Personal.app"
+  local main_config="$HOME/Library/Application Support/Cursor"
+  local personal_config="$HOME/.cursor-personal"
+
+  echo "=== Cursor Sync ==="
+  echo ""
+
+  # Check if main Cursor exists
+  if [ ! -d "$main_app" ]; then
+    echo "❌ Main Cursor.app not found at $main_app"
+    return 1
+  fi
+
+  # Step 1: Check and update app version
+  local main_version=$(defaults read "$main_app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null)
+  local personal_version=$(defaults read "$personal_app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null)
+
+  echo "📦 App Versions:"
+  echo "   Main Cursor: v$main_version"
+  echo "   Cursor-Personal: v$personal_version"
+  echo ""
+
+  if [ "$main_version" != "$personal_version" ]; then
+    echo "🔄 Updating Cursor-Personal app to v$main_version..."
+
+    # Kill any running instances
+    pkill -f "Cursor-Personal.app" 2>/dev/null
+    sleep 2
+
+    # Remove old version (need sudo since owned by root)
+    sudo rm -rf "$personal_app"
+
+    # Copy new version
+    sudo cp -R "$main_app" "$personal_app"
+
+    # Fix ownership
+    sudo chown -R $(whoami):staff "$personal_app"
+
+    echo "✓ App updated to v$main_version"
+    echo ""
+  else
+    echo "✓ App version is up to date"
+    echo ""
+  fi
+
+  # Step 2: Sync settings and extensions
+  echo "⚙️  Syncing settings and extensions..."
+
+  # Create backup
+  if [ -d "$personal_config/User" ]; then
+    cp -r "$personal_config/User" "$personal_config/User.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null
+  fi
+
+  # Sync User settings (keybindings, settings.json, snippets, etc.)
+  mkdir -p "$personal_config/User"
+  if [ -d "$main_config/User" ]; then
+    rsync -av --exclude='globalStorage' --exclude='workspaceStorage' --exclude='History' \
+      "$main_config/User/" "$personal_config/User/" 2>&1 | grep -v "sending incremental" | grep -v "sent.*received" | grep -v "total size"
+  fi
+
+  # Sync extensions
+  if [ -d "$main_config/extensions" ]; then
+    mkdir -p "$personal_config/extensions"
+    rsync -av "$main_config/extensions/" "$personal_config/extensions/" 2>&1 | grep -v "sending incremental" | grep -v "sent.*received" | grep -v "total size"
+  fi
+
+  echo ""
+  echo "✓ Sync complete! Cursor-Personal is now fully up to date."
+  echo "💡 Run 'picursor' to launch with all the latest features."
+}
