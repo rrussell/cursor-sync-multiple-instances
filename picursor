@@ -1,0 +1,11 @@
+picursor() {
+  # Launch with full isolation to prevent session sharing
+  # Using --new-window ensures it opens in the correct isolated instance
+  nohup "/Applications/Cursor-Personal.app/Contents/MacOS/Cursor" \
+    --user-data-dir="$HOME/.cursor-personal" \
+    --extensions-dir="$HOME/.cursor-personal/extensions" \
+    --no-first-run \
+    --new-window \
+    --disable-dev-shm-usage \
+    "$@" >/dev/null 2>&1 &
+}
